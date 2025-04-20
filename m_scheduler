@@ -1,0 +1,36 @@
+module m_scheduler(
+    input clk, rst, flag_0_15, padding_done,
+    input [31:0] data_in,
+    output reg [31:0] mreg_15,
+    output reg [6:0] iteration_out
+);
+    reg [6:0] counter_iteration;
+    reg [31:0] mreg [0:15];
+    wire [31:0] s0, s1;
+
+    assign s0 = ({mreg[1][6:0], mreg[1][31:7]} ^ {mreg[1][17:0], mreg[1][31:18]} ^ (mreg[1] >> 3));
+    assign s1 = ({mreg[14][16:0], mreg[14][31:17]} ^ {mreg[14][18:0], mreg[14][31:19]} ^ (mreg[14] >> 10));
+
+    always @(posedge clk) begin
+        if (!rst) begin
+            counter_iteration <= 0;
+            iteration_out <= 0;
+            mreg_15 <= 0;
+            for (integer i = 0; i < 16; i = i + 1) mreg[i] <= 0;
+        end else begin
+            if (!flag_0_15 && counter_iteration < 16) begin
+                for (integer i = 15; i > 0; i = i - 1)
+                    mreg[i] <= mreg[i-1];
+                mreg[0] <= data_in;
+                mreg_15 <= data_in;
+                counter_iteration <= counter_iteration + 1;
+            end else if (counter_iteration < 64 && padding_done) begin
+                mreg_15 <= mreg[0] + s0 + mreg[9] + s1;
+                for (integer i = 0; i < 15; i = i + 1)
+                    mreg[i] <= mreg[i+1];
+                counter_iteration <= counter_iteration + 1;
+            end
+            iteration_out <= counter_iteration;
+        end
+    end
+endmodule
